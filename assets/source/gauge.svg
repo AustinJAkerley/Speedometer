@@ -1,0 +1,42 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="75%">
+      <stop offset="0%" stop-color="#1B2C48"/>
+      <stop offset="100%" stop-color="#0B1220"/>
+    </radialGradient>
+    <linearGradient id="arc" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#39E0A6"/>
+      <stop offset="100%" stop-color="#3AD1FF"/>
+    </linearGradient>
+    <linearGradient id="needle" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#CFE9FF"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- gauge ticks (accent within the active range, muted beyond) -->
+  <g stroke-width="14" stroke-linecap="round">
+    <line x1="512" y1="272" x2="512" y2="316" stroke="#39E0A6" transform="rotate(-135 512 512)"/>
+    <line x1="512" y1="272" x2="512" y2="316" stroke="#39E0A6" transform="rotate(-90 512 512)"/>
+    <line x1="512" y1="272" x2="512" y2="316" stroke="#39E0A6" transform="rotate(-45 512 512)"/>
+    <line x1="512" y1="272" x2="512" y2="316" stroke="#39E0A6" transform="rotate(0 512 512)"/>
+    <line x1="512" y1="272" x2="512" y2="316" stroke="#3AD1FF" transform="rotate(30 512 512)"/>
+    <line x1="512" y1="272" x2="512" y2="316" stroke="#56637F" transform="rotate(90 512 512)"/>
+    <line x1="512" y1="272" x2="512" y2="316" stroke="#56637F" transform="rotate(135 512 512)"/>
+  </g>
+
+  <!-- gauge ring: full track + accent progress -->
+  <g transform="rotate(135 512 512)">
+    <circle cx="512" cy="512" r="300" fill="none" stroke="#233250" stroke-width="64"
+      stroke-linecap="round" stroke-dasharray="1413.72 1884.96"/>
+    <circle cx="512" cy="512" r="300" fill="none" stroke="url(#arc)" stroke-width="64"
+      stroke-linecap="round" stroke-dasharray="863.4 1884.96"/>
+  </g>
+
+  <!-- needle -->
+  <polygon points="529,521 637,295 495,503" fill="url(#needle)"/>
+  <circle cx="512" cy="512" r="46" fill="#0B1220" stroke="#39E0A6" stroke-width="14"/>
+  <circle cx="512" cy="512" r="14" fill="#39E0A6"/>
+</svg>
