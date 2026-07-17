@@ -144,3 +144,49 @@ Speedometer No Ads collects **no data**. Declare accordingly:
   user-facing version string.
 
 Full EAS docs: https://docs.expo.dev/eas/
+
+---
+
+## 7. Automated build + one-click publish (GitHub Actions)
+
+The workflow at [.github/workflows/publish.yml](./.github/workflows/publish.yml) does this
+on every push to `main`:
+
+1. **Build job (automatic):** typechecks, then runs `eas build` for iOS + Android.
+2. **Publish job (manual gate):** waits for your approval, then `eas submit`s the finished
+   builds to both stores.
+
+So a push builds everything and gets it ready; publishing is a single **Approve** click.
+
+### One-time setup
+
+1. **Create an Expo access token:** https://expo.dev/settings/access-tokens
+   → add it to the repo as a secret named `EXPO_TOKEN`
+   (**GitHub → Settings → Secrets and variables → Actions → New repository secret**).
+
+2. **Create the approval gate:** GitHub → **Settings → Environments → New environment**
+   → name it `production` → enable **Required reviewers** and add yourself.
+   This is what makes the publish job pause with a **Review deployments → Approve** button.
+
+3. **Link the project & credentials once, locally** (so CI can run non-interactively):
+   ```bash
+   eas init                 # writes extra.eas.projectId into app.json (commit this)
+   eas build --profile production --platform all   # first run sets up signing credentials
+   ```
+   - iOS: log in with your Apple ID when prompted; EAS stores the certificates.
+   - Android: EAS generates a keystore. For `eas submit` to upload automatically, add a
+     Google Play **service account** key (see §4) via `eas credentials` or the EAS website.
+
+### How it feels day to day
+
+```
+git push origin main
+  → GitHub Actions builds iOS + Android (~20–40 min)
+  → the "Submit to the stores" job shows "Waiting for review"
+  → you click Approve
+  → it uploads to App Store Connect (TestFlight) and Google Play
+```
+
+> Tip: to build automatically but **only publish some pushes**, just don't approve the ones
+> you want to skip — the build is still there to approve later, or download from EAS.
+

@@ -1,0 +1,73 @@
+name: Build & Publish
+
+# On every push to main: typecheck + build both platforms with EAS.
+# Then wait for a manual approval (the "production" environment gate)
+# before submitting the finished builds to the App Store / Google Play.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Typecheck & build (EAS)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build iOS + Android
+        run: eas build --platform all --profile production --non-interactive --wait
+
+  publish:
+    name: Submit to the stores
+    needs: build
+    runs-on: ubuntu-latest
+    # This environment must have a required reviewer configured in
+    # Settings → Environments → production. That reviewer approval is the
+    # "button click to publish" gate — the job waits here until approved.
+    environment:
+      name: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Submit latest builds
+        run: eas submit --platform all --profile production --latest --non-interactive
