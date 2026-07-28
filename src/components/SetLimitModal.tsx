@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { theme } from '../theme';
 import {
   mphFromDisplay,
@@ -39,6 +39,11 @@ export function SetLimitModal({
 
   const step = (delta: number) => setDraft((d) => Math.max(0, Math.min(99, d + delta)));
 
+  const onChangeText = (text: string) => {
+    const digits = text.replace(/[^0-9]/g, '').slice(0, 2);
+    setDraft(digits === '' ? 0 : Math.min(99, parseInt(digits, 10)));
+  };
+
   const save = () => {
     onSave(mphFromDisplay(draft, unit));
     onClose();
@@ -65,7 +70,19 @@ export function SetLimitModal({
           <View style={styles.stepper}>
             <StepButton label="−" onPress={() => step(-1)} disabled={draft <= 0} />
             <View style={styles.readout}>
-              <Text style={styles.value}>{isOff ? 'Off' : draft}</Text>
+              <TextInput
+                style={styles.value}
+                value={isOff ? '' : String(draft)}
+                onChangeText={onChangeText}
+                keyboardType="number-pad"
+                returnKeyType="done"
+                maxLength={2}
+                selectTextOnFocus
+                placeholder="Off"
+                placeholderTextColor={theme.colors.textMuted}
+                textAlign="center"
+                accessibilityLabel="Speed limit"
+              />
               {!isOff ? <Text style={styles.unit}>{label}</Text> : null}
             </View>
             <StepButton label="+" onPress={() => step(1)} disabled={draft >= 99} />
@@ -203,6 +220,8 @@ const styles = StyleSheet.create({
     fontSize: 56,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
+    paddingVertical: 0,
+    minWidth: 90,
   },
   unit: {
     color: theme.colors.textMuted,
