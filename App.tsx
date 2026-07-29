@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
 
@@ -18,6 +18,7 @@ import type { SignalLevel } from './src/hooks/useSpeed';
 import { Gauge } from './src/components/Gauge';
 import { StatCard } from './src/components/StatCard';
 import { SetLimitModal } from './src/components/SetLimitModal';
+import { TripChart } from './src/components/TripChart';
 import { UnitToggle } from './src/components/UnitToggle';
 import {
   distanceFromMeters,
@@ -44,6 +45,7 @@ export default function App() {
 
 function Speedometer() {
   useKeepAwake();
+  const insets = useSafeAreaInsets();
 
   const [unit, setUnit] = useState<Unit>('mph');
   const [limitMph, setLimitMph] = useState<number>(DEFAULT_LIMIT_MPH);
@@ -51,7 +53,7 @@ function Speedometer() {
   const [wasOverLimit, setWasOverLimit] = useState(false);
   const [limitModalVisible, setLimitModalVisible] = useState(false);
 
-  const { speedMps, maxMps, avgMps, distanceM, accuracyM, signal, permission, hasFix, error, reset, retry } =
+  const { speedMps, maxMps, avgMps, distanceM, accuracyM, signal, permission, hasFix, error, history, reset, retry } =
     useSpeed();
 
   useEffect(() => {
@@ -116,7 +118,10 @@ function Speedometer() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.safe, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}
+      edges={['top', 'left', 'right']}
+    >
       <StatusBar style="light" />
 
       <View style={styles.header}>
@@ -148,6 +153,8 @@ function Speedometer() {
               unit={distanceLabel(unit)}
             />
           </View>
+
+          <TripChart history={history} unit={unit} />
 
           <Text style={styles.accuracy}>
             {hasFix && accuracyM != null

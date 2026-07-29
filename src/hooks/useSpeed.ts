@@ -7,6 +7,18 @@ export type PermissionState = 'pending' | 'granted' | 'denied';
 /** GPS signal quality, derived from the horizontal accuracy of each fix. */
 export type SignalLevel = 'weak' | 'fair' | 'good' | 'strong';
 
+/** One point of the trip speed graph (time bucket vs speed, in m/s). */
+export interface TripPoint {
+  /** Elapsed seconds since the trip started. */
+  t: number;
+  /** Average speed in this bucket (m/s). */
+  avg: number;
+  /** Lowest speed in this bucket (m/s). */
+  min: number;
+  /** Highest speed in this bucket (m/s). */
+  max: number;
+}
+
 export interface SpeedState {
   /** Current (smoothed) speed in meters/second. */
   speedMps: number;
@@ -23,6 +35,8 @@ export interface SpeedState {
   permission: PermissionState;
   /** True once at least one GPS fix has arrived. */
   hasFix: boolean;
+  /** Downsampled speed-over-time series for the current trip (max 4 hours). */
+  history: TripPoint[];
   error: string | null;
 }
 
@@ -35,6 +49,7 @@ const INITIAL: SpeedState = {
   signal: 'weak',
   permission: 'pending',
   hasFix: false,
+  history: [],
   error: null,
 };
 
@@ -47,6 +62,45 @@ const STOP_THRESHOLD_MPS = 0.3;
 // Plausible max acceleration for a cart/scooter/bike (m/s²) — used to reject
 // GPS speed spikes that would imply impossible acceleration.
 const MAX_ACCEL_MPS2 = 6;
+// Longest trip window kept in the graph (seconds). Older samples roll off.
+const FOUR_HOURS_SEC = 4 * 60 * 60;
+// Number of points the graph is downsampled to for smooth, cheap rendering.
+const GRAPH_BUCKETS = 180;
+
+interface RawSample {
+  t: number; // elapsed seconds since trip start
+  mps: number;
+}
+
+/** Downsample raw per-fix samples into evenly spaced buckets for the graph. */
+function buildSeries(raw: RawSample[]): TripPoint[] {
+  if (raw.length === 0) return [];
+  const start = raw[0].t;
+  const end = raw[raw.length - 1].t;
+  const span = Math.max(1, end - start);
+  const width = span / GRAPH_BUCKETS;
+
+  const buckets: (TripPoint & { sum: number; n: number })[] = [];
+  for (const s of raw) {
+    let idx = Math.floor((s.t - start) / width);
+    if (idx >= GRAPH_BUCKETS) idx = GRAPH_BUCKETS - 1;
+    let b = buckets[idx];
+    if (!b) {
+      b = { t: start + idx * width, avg: 0, min: s.mps, max: s.mps, sum: 0, n: 0 };
+      buckets[idx] = b;
+    }
+    b.sum += s.mps;
+    b.n += 1;
+    if (s.mps < b.min) b.min = s.mps;
+    if (s.mps > b.max) b.max = s.mps;
+  }
+
+  const out: TripPoint[] = [];
+  for (const b of buckets) {
+    if (b) out.push({ t: b.t, avg: b.sum / b.n, min: b.min, max: b.max });
+  }
+  return out;
+}
 
 function signalFromAccuracy(accuracy: number | null): SignalLevel {
   if (accuracy == null) return 'weak';
@@ -70,6 +124,8 @@ export function useSpeed() {
   const totalDistance = useRef(0);
   const movingTime = useRef(0); // seconds spent actually moving
   const smoothed = useRef(0); // exponential moving average of speed (m/s)
+  const tripStart = useRef<number | null>(null); // ms timestamp of first fix
+  const samples = useRef<RawSample[]>([]); // raw speed samples this trip
 
   const handleLocation = useCallback((loc: Location.LocationObject) => {
     const { latitude, longitude, speed, accuracy } = loc.coords;
@@ -115,6 +171,18 @@ export function useSpeed() {
     const distanceM = totalDistance.current;
     const avgMps = movingTime.current > 0 ? distanceM / movingTime.current : 0;
 
+    // Record this sample for the trip graph, keeping only the last 4 hours.
+    if (tripStart.current == null) tripStart.current = now;
+    const elapsed = (now - tripStart.current) / 1000;
+    samples.current.push({ t: elapsed, mps: speedMps });
+    while (
+      samples.current.length > 1 &&
+      elapsed - samples.current[0].t > FOUR_HOURS_SEC
+    ) {
+      samples.current.shift();
+    }
+    const history = buildSeries(samples.current);
+
     setState((s) => ({
       ...s,
       speedMps,
@@ -124,6 +192,7 @@ export function useSpeed() {
       accuracyM: accuracy ?? null,
       signal: signalFromAccuracy(accuracy ?? null),
       hasFix: true,
+      history,
     }));
   }, []);
 
@@ -157,12 +226,15 @@ export function useSpeed() {
     movingTime.current = 0;
     lastFix.current = null;
     smoothed.current = 0;
+    tripStart.current = null;
+    samples.current = [];
     setState((s) => ({
       ...s,
       speedMps: 0,
       maxMps: 0,
       avgMps: 0,
       distanceM: 0,
+      history: [],
     }));
   }, []);
 
